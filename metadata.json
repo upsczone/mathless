@@ -1,0 +1,6 @@
+{
+  "name": "Bubble Math: Physics Odyssey",
+  "description": "Vibrant physics-based maths game with power-ups, endless levels, global leaderboards, daily challenges, and unlockable bubble skins.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
