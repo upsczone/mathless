@@ -62,7 +62,12 @@ jobs:
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload-keystore.p12" >> "$GITHUB_ENV"
           echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
           keytool -list -keystore "$RUNNER_TEMP/upload-keystore.p12" -storetype PKCS12 -storepass "$ANDROID_KEYSTORE_PASSWORD"
-          echo "ANDROID_KEY_ALIAS=upload" >> "$GITHUB_ENV"
+          KEY_ALIAS="$(keytool -list -v -keystore "$RUNNER_TEMP/upload-keystore.p12" -storetype PKCS12 -storepass "$ANDROID_KEYSTORE_PASSWORD" | sed -n 's/^Alias name: //p' | head -n 1)"
+          if [[ -z "$KEY_ALIAS" ]]; then
+            echo "No key alias found in the upload keystore" >&2
+            exit 1
+          fi
+          echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
           cat > "$RUNNER_TEMP/signing.init.gradle" <<'GRADLE'
           gradle.allprojects {
               afterEvaluate { project ->
