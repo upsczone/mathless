@@ -88,10 +88,10 @@ jobs:
           release = re.search(r"\brelease\s*\{", text[build_types.end():])
           if release:
               insert_at = build_types.end() + release.end()
-              text = text[:insert_at] + "\\n            signingConfig signingConfigs.release" + text[insert_at:]
+              text = text[:insert_at] + "\n            signingConfig signingConfigs.release" + text[insert_at:]
           else:
               insert_at = build_types.end()
-              text = text[:insert_at] + "\\n        release {\\n            signingConfig signingConfigs.release\\n        }" + text[insert_at:]
+              text = text[:insert_at] + "\n        release {\n            signingConfig signingConfigs.release\n        }" + text[insert_at:]
           path.write_text(text)
 
           PY
