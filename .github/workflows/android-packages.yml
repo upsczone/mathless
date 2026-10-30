@@ -70,10 +70,21 @@ jobs:
 
           path = Path("android/app/build.gradle")
           text = path.read_text()
-          if "signingConfigs" in text:
-              raise SystemExit("Release signing is already configured")
-          text = text.replace("android {", """android {
-              signingConfigs {
+          import re
+
+          def block_bounds(source, opening):
+              brace = source.find("{", opening.start())
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return brace, pos
+              raise SystemExit("Unclosed Gradle block")
+
+          release_signing = """
                   release {
                       storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
                       storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
@@ -81,16 +92,33 @@ jobs:
                       keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
                       storeType "PKCS12"
                   }
-              }""", 1)
-          build_types = re.search(r"buildTypes\s*\{", text)
-          if build_types:
-              release = re.search(r"\brelease\s*\{", text[build_types.end():])
+          """
+          signing = re.search(r"signingConfigs\\s*\\{", text)
+          if signing:
+              sig_open, sig_close = block_bounds(text, signing)
+              release = re.search(r"\\brelease\\s*\\{", text[sig_open:sig_close])
               if release:
-                  insert_at = build_types.end() + release.end()
-                  text = text[:insert_at] + "\n            signingConfig signingConfigs.release" + text[insert_at:]
+                  rel_open, rel_close = block_bounds(text, re.search(r"\\brelease\\s*\\{", text, sig_open))
+                  text = text[:rel_open] + "{\\n                      storeFile file(System.getenv(\\\"ANDROID_KEYSTORE_PATH\\\"))\\n                      storePassword System.getenv(\\\"ANDROID_KEYSTORE_PASSWORD\\\")\\n                      keyAlias System.getenv(\\\"ANDROID_KEY_ALIAS\\\")\\n                      keyPassword System.getenv(\\\"ANDROID_KEYSTORE_PASSWORD\\\")\\n                      storeType \\\"PKCS12\\\"\\n                  }" + text[rel_close + 1:]
               else:
-                  insert_at = build_types.end()
-                  text = text[:insert_at] + "\n        release {\n            signingConfig signingConfigs.release\n        }" + text[insert_at:]
+                  text = text[:sig_close] + release_signing + text[sig_close:]
+          else:
+              text = text.replace("android {", """android {
+              signingConfigs {""" + release_signing + """
+              }""", 1)
+
+          build_types = re.search(r"buildTypes\\s*\\{", text)
+          if build_types:
+              bt_open, bt_close = block_bounds(text, build_types)
+              release = re.search(r"\\brelease\\s*\\{", text[bt_open:bt_close])
+              if release:
+                  rel_match = re.search(r"\\brelease\\s*\\{", text, bt_open)
+                  rel_open, rel_close = block_bounds(text, rel_match)
+                  body = text[rel_open + 1:rel_close]
+                  if "signingConfig signingConfigs.release" not in body:
+                      text = text[:rel_open + 1] + "\\n            signingConfig signingConfigs.release" + text[rel_open + 1:]
+              else:
+                  text = text[:bt_close] + "\\n        release {\\n            signingConfig signingConfigs.release\\n        }" + text[bt_close:]
           else:
               text = text.replace("android {", """android {
               buildTypes {
