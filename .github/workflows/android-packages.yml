@@ -82,15 +82,18 @@ jobs:
                       storeType "PKCS12"
                   }
               }""", 1)
-          text, count = re.subn(
-              r"(buildTypes\s*\{\s*release\s*\{)",
-              r"\1\n            signingConfig signingConfigs.release",
-              text,
-              count=1,
-          )
-          if count != 1:
-              raise SystemExit("Could not find the generated release build type")
+          build_types = re.search(r"buildTypes\\s*\\{", text)
+          if not build_types:
+              raise SystemExit("Could not find generated Android buildTypes block")
+          release = re.search(r"\\brelease\\s*\\{", text[build_types.end():])
+          if release:
+              insert_at = build_types.end() + release.end()
+              text = text[:insert_at] + "\\n            signingConfig signingConfigs.release" + text[insert_at:]
+          else:
+              insert_at = build_types.end()
+              text = text[:insert_at] + "\\n        release {\\n            signingConfig signingConfigs.release\\n        }" + text[insert_at:]
           path.write_text(text)
+
           PY
       - name: Build APK and AAB
         working-directory: android
