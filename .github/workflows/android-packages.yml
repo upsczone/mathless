@@ -64,39 +64,27 @@ jobs:
           KEY_ALIAS="$(keytool -list -keystore "$RUNNER_TEMP/upload-keystore.p12" -storetype PKCS12 -storepass "$ANDROID_KEYSTORE_PASSWORD" | awk -F, '/PrivateKeyEntry/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1; exit}')"
           test -n "$KEY_ALIAS"
           echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path("android/app/build.gradle")
-          text = path.read_text()
-          text += """
-          android {
-              signingConfigs {
-                  playStoreUpload {
-                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
-                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
-                      keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                      storeType "PKCS12"
-                  }
-              }
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.playStoreUpload
+          cat > "$RUNNER_TEMP/signing.init.gradle" <<'GRADLE'
+          gradle.allprojects {
+              afterEvaluate { project ->
+                  if (project.plugins.hasPlugin("com.android.application")) {
+                      def android = project.extensions.findByName("android")
+                      def upload = android.signingConfigs.maybeCreate("playStoreUpload")
+                      upload.storeFile = new File(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      upload.storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      upload.keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                      upload.keyPassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      upload.storeType = "PKCS12"
+                      android.buildTypes.getByName("release").signingConfig = upload
                   }
               }
           }
-          """
-          path.write_text(text)
+          GRADLE
+          echo "ANDROID_SIGNING_INIT=$RUNNER_TEMP/signing.init.gradle" >> "$GITHUB_ENV"
 
-
-
-
-          PY
       - name: Build APK and AAB
         working-directory: android
-        run: ./gradlew --no-daemon assembleDebug bundleRelease
+        run: ./gradlew --no-daemon --init-script "$ANDROID_SIGNING_INIT" assembleDebug bundleRelease
       - name: Upload APK and AAB
         uses: actions/upload-artifact@v4
         with:
