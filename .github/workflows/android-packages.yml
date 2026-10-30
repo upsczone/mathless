@@ -84,48 +84,45 @@ jobs:
                           return brace, pos
               raise SystemExit("Unclosed Gradle block")
 
-          release_signing = """
-                  release {
+          release_signing = """release {
                       storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
                       storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
                       keyAlias System.getenv("ANDROID_KEY_ALIAS")
                       keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
                       storeType "PKCS12"
-                  }
-          """
-          signing = re.search(r"signingConfigs\\s*\\{", text)
+                  }"""
+          signing = re.search(r"signingConfigs\s*\{", text)
           if signing:
               sig_open, sig_close = block_bounds(text, signing)
-              release = re.search(r"\\brelease\\s*\\{", text[sig_open:sig_close])
-              if release:
-                  rel_open, rel_close = block_bounds(text, re.search(r"\\brelease\\s*\\{", text, sig_open))
-                  text = text[:rel_open] + "{\\n                      storeFile file(System.getenv(\\\"ANDROID_KEYSTORE_PATH\\\"))\\n                      storePassword System.getenv(\\\"ANDROID_KEYSTORE_PASSWORD\\\")\\n                      keyAlias System.getenv(\\\"ANDROID_KEY_ALIAS\\\")\\n                      keyPassword System.getenv(\\\"ANDROID_KEYSTORE_PASSWORD\\\")\\n                      storeType \\\"PKCS12\\\"\\n                  }" + text[rel_close + 1:]
+              config_body = text[sig_open + 1:sig_close]
+              if re.search(r"\brelease\s*\{", config_body):
+                  config_body = re.sub(r"\brelease\s*\{.*?\}", release_signing, config_body, count=1, flags=re.S)
               else:
-                  text = text[:sig_close] + release_signing + text[sig_close:]
+                  config_body += "\n" + release_signing
+              text = text[:sig_open + 1] + config_body + text[sig_close:]
           else:
-              text = text.replace("android {", """android {
-              signingConfigs {""" + release_signing + """
-              }""", 1)
+              text = text.replace("android {", "android {\n    signingConfigs {\n        " + release_signing + "\n    }", 1)
 
-          build_types = re.search(r"buildTypes\\s*\\{", text)
+          build_types = re.search(r"buildTypes\s*\{", text)
           if build_types:
               bt_open, bt_close = block_bounds(text, build_types)
-              release = re.search(r"\\brelease\\s*\\{", text[bt_open:bt_close])
-              if release:
-                  rel_match = re.search(r"\\brelease\\s*\\{", text, bt_open)
-                  rel_open, rel_close = block_bounds(text, rel_match)
-                  body = text[rel_open + 1:rel_close]
-                  if "signingConfig signingConfigs.release" not in body:
-                      text = text[:rel_open + 1] + "\\n            signingConfig signingConfigs.release" + text[rel_open + 1:]
+              type_body = text[bt_open + 1:bt_close]
+              if re.search(r"\brelease\s*\{", type_body):
+                  type_body = re.sub(
+                      r"(\brelease\s*\{)",
+                      r"\1\n            signingConfig signingConfigs.release",
+                      type_body,
+                      count=1,
+                  )
               else:
-                  text = text[:bt_close] + "\\n        release {\\n            signingConfig signingConfigs.release\\n        }" + text[bt_close:]
+                  type_body += "\n        release {\n            signingConfig signingConfigs.release\n        }"
+              text = text[:bt_open + 1] + type_body + text[bt_close:]
           else:
-              text = text.replace("android {", """android {
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                  }
-              }""", 1)
+              text = text.replace(
+                  "android {",
+                  "android {\n    buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }\n    }",
+                  1,
+              )
           path.write_text(text)
 
           PY
