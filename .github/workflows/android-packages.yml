@@ -70,9 +70,11 @@ jobs:
 
           path = Path("android/app/build.gradle")
           text = path.read_text()
-          if "android {" not in text:
+          android_block = re.search(r"\bandroid\s*\{", text)
+          if not android_block:
+              print(text)
               raise SystemExit("Could not find generated Android config")
-          text = text.replace("android {", """android {
+          addition = """
               signingConfigs {
                   playStoreUpload {
                       storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
@@ -86,8 +88,11 @@ jobs:
                   release {
                       signingConfig signingConfigs.playStoreUpload
                   }
-              }""", 1)
+              }
+          """
+          text = text[:android_block.end()] + addition + text[android_block.end():]
           path.write_text(text)
+
 
 
           PY
