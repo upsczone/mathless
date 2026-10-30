@@ -83,15 +83,21 @@ jobs:
                   }
               }""", 1)
           build_types = re.search(r"buildTypes\s*\{", text)
-          if not build_types:
-              raise SystemExit("Could not find generated Android buildTypes block")
-          release = re.search(r"\brelease\s*\{", text[build_types.end():])
-          if release:
-              insert_at = build_types.end() + release.end()
-              text = text[:insert_at] + "\n            signingConfig signingConfigs.release" + text[insert_at:]
+          if build_types:
+              release = re.search(r"\brelease\s*\{", text[build_types.end():])
+              if release:
+                  insert_at = build_types.end() + release.end()
+                  text = text[:insert_at] + "\n            signingConfig signingConfigs.release" + text[insert_at:]
+              else:
+                  insert_at = build_types.end()
+                  text = text[:insert_at] + "\n        release {\n            signingConfig signingConfigs.release\n        }" + text[insert_at:]
           else:
-              insert_at = build_types.end()
-              text = text[:insert_at] + "\n        release {\n            signingConfig signingConfigs.release\n        }" + text[insert_at:]
+              text = text.replace("android {", """android {
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }""", 1)
           path.write_text(text)
 
           PY
