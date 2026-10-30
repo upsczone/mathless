@@ -61,6 +61,9 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-keystore.p12"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload-keystore.p12" >> "$GITHUB_ENV"
           echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          KEY_ALIAS="$(keytool -list -keystore "$RUNNER_TEMP/upload-keystore.p12" -storetype PKCS12 -storepass "$ANDROID_KEYSTORE_PASSWORD" | awk -F, '/PrivateKeyEntry/ {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1; exit}')"
+          test -n "$KEY_ALIAS"
+          echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -74,7 +77,7 @@ jobs:
                   release {
                       storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
                       storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                      keyAlias "upload"
+                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
                       keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
                       storeType "PKCS12"
                   }
