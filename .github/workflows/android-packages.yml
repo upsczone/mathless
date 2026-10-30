@@ -49,6 +49,46 @@ jobs:
           fi
           if [[ ! -d android ]]; then npx cap add android; fi
           npx cap sync android
+      - name: Configure release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-keystore.p12"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload-keystore.p12" >> "$GITHUB_ENV"
+          echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("android/app/build.gradle")
+          text = path.read_text()
+          if "signingConfigs" in text:
+              raise SystemExit("Release signing is already configured")
+          text = text.replace("android {", """android {
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias "upload"
+                      keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      storeType "PKCS12"
+                  }
+              }""", 1)
+          text, count = re.subn(
+              r"(buildTypes\\s*\\{\\s*release\\s*\\{)",
+              r"\\1\\n            signingConfig signingConfigs.release",
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("Could not find the generated release build type")
+          path.write_text(text)
+          PY
       - name: Build APK and AAB
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug bundleRelease
