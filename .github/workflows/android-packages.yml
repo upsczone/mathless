@@ -70,60 +70,25 @@ jobs:
 
           path = Path("android/app/build.gradle")
           text = path.read_text()
-          import re
-
-          def block_bounds(source, opening):
-              brace = source.find("{", opening.start())
-              depth = 0
-              for pos in range(brace, len(source)):
-                  if source[pos] == "{":
-                      depth += 1
-                  elif source[pos] == "}":
-                      depth -= 1
-                      if depth == 0:
-                          return brace, pos
-              raise SystemExit("Unclosed Gradle block")
-
-          release_signing = """release {
+          if "android {" not in text:
+              raise SystemExit("Could not find generated Android config")
+          text = text.replace("android {", """android {
+              signingConfigs {
+                  playStoreUpload {
                       storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
                       storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
                       keyAlias System.getenv("ANDROID_KEY_ALIAS")
                       keyPassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
                       storeType "PKCS12"
-                  }"""
-          signing = re.search(r"signingConfigs\s*\{", text)
-          if signing:
-              sig_open, sig_close = block_bounds(text, signing)
-              config_body = text[sig_open + 1:sig_close]
-              if re.search(r"\brelease\s*\{", config_body):
-                  config_body = re.sub(r"\brelease\s*\{.*?\}", release_signing, config_body, count=1, flags=re.S)
-              else:
-                  config_body += "\n" + release_signing
-              text = text[:sig_open + 1] + config_body + text[sig_close:]
-          else:
-              text = text.replace("android {", "android {\n    signingConfigs {\n        " + release_signing + "\n    }", 1)
-
-          build_types = re.search(r"buildTypes\s*\{", text)
-          if build_types:
-              bt_open, bt_close = block_bounds(text, build_types)
-              type_body = text[bt_open + 1:bt_close]
-              if re.search(r"\brelease\s*\{", type_body):
-                  type_body = re.sub(
-                      r"(\brelease\s*\{)",
-                      r"\1\n            signingConfig signingConfigs.release",
-                      type_body,
-                      count=1,
-                  )
-              else:
-                  type_body += "\n        release {\n            signingConfig signingConfigs.release\n        }"
-              text = text[:bt_open + 1] + type_body + text[bt_close:]
-          else:
-              text = text.replace(
-                  "android {",
-                  "android {\n    buildTypes {\n        release {\n            signingConfig signingConfigs.release\n        }\n    }",
-                  1,
-              )
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.playStoreUpload
+                  }
+              }""", 1)
           path.write_text(text)
+
 
           PY
       - name: Build APK and AAB
