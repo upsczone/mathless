@@ -49,6 +49,28 @@ jobs:
           fi
           if [[ ! -d android ]]; then npx cap add android; fi
           npx cap sync android
+
+      - name: Set unique Android version code
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+          path = Path("android/app/build.gradle")
+          text = path.read_text()
+          version_code = os.environ["GITHUB_RUN_NUMBER"]
+          text, count = re.subn(
+              r"(?m)^(\\s*versionCode\\s+)\\d+(\\s*)$",
+              rf"\\g<1>{version_code}\\2",
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("Could not locate generated Android versionCode")
+          path.write_text(text)
+          print(f"Using Android versionCode {version_code}")
+          PY
       - name: Configure release signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
