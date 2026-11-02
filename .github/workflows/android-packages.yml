@@ -61,8 +61,8 @@ jobs:
           text = path.read_text()
           version_code = os.environ["GITHUB_RUN_NUMBER"]
           text, count = re.subn(
-              r"(?m)^(\\s*versionCode\\s+)\\d+(\\s*)$",
-              rf"\\g<1>{version_code}\\2",
+              r"(?m)^(\s*versionCode\s+)\d+(\s*)$",
+              rf"\g<1>{version_code}\2",
               text,
               count=1,
           )
