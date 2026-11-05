@@ -18,11 +18,11 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Bubble Math: Physics Odyssey',
+  title: 'MathsLess - MInd Game',
   description:
     'Vibrant physics-based maths game with power-ups, endless levels, global leaderboards, daily challenges, and unlockable bubble skins.',
   openGraph: {
-    title: 'Bubble Math: Physics Odyssey',
+    title: 'MathsLess - MInd Game',
     description:
       'Vibrant physics-based maths game with power-ups, endless levels, global leaderboards, daily challenges, and unlockable bubble skins.',
     type: 'website',

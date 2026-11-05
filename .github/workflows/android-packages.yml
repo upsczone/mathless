@@ -12,7 +12,7 @@ jobs:
   android:
     runs-on: ubuntu-latest
     env:
-      APP_NAME: "MathLess"
+      APP_NAME: "MathsLess - MInd Game"
       APP_ID: "ai.upsczone.mathless"
       WEB_DIR: "out"
     steps:
@@ -49,6 +49,9 @@ jobs:
           fi
           if [[ ! -d android ]]; then npx cap add android; fi
           npx cap sync android
+
+      - name: Apply matching MathsLess launcher icon
+        run: node scripts/prepare-android.mjs
 
       - name: Set unique Android version code
         shell: bash

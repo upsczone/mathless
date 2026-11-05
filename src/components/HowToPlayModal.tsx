@@ -21,7 +21,7 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose 
         <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/10">
           <h2 className="text-xl font-black uppercase tracking-wide text-fuchsia-200 flex items-center gap-2">
             <Sparkles size={20} className="text-cyan-400" />
-            How to Play Bubble Math
+            How to Play MathsLess
           </h2>
           <button
             onClick={onClose}
