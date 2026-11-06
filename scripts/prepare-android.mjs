@@ -17,22 +17,26 @@ if (iconBytes.length < 8 || iconBytes.subarray(0, 8).toString('hex') !== '89504e
   throw new Error('The original MathsLess Play Store icon is not a valid PNG.');
 }
 
+const writtenIcons = [];
 for (const entry of fs.readdirSync(resRoot, { withFileTypes: true })) {
   if (!entry.isDirectory() || !/^mipmap-(mdpi|hdpi|xhdpi|xxhdpi|xxxhdpi)$/i.test(entry.name)) continue;
   const mipmapDir = path.join(resRoot, entry.name);
   for (const name of ['ic_launcher.png', 'ic_launcher_round.png', 'ic_launcher_foreground.png']) {
     fs.writeFileSync(path.join(mipmapDir, name), iconBytes);
+    writtenIcons.push(path.join(mipmapDir, name));
   }
 }
-const adaptiveDir = path.join(resRoot, 'mipmap-anydpi-v26');
-fs.mkdirSync(adaptiveDir, { recursive: true });
-const adaptiveIcon = `<?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@mipmap/ic_launcher" />
-    <foreground android:drawable="@mipmap/ic_launcher" />
-</adaptive-icon>
-`;
-fs.writeFileSync(path.join(adaptiveDir, 'ic_launcher.xml'), adaptiveIcon);
-fs.writeFileSync(path.join(adaptiveDir, 'ic_launcher_round.xml'), adaptiveIcon);
 
-console.log('Applied the original MathsLess Play Store icon to all Android launcher resources.');
+// Android adaptive icons mask and layer foreground/background separately. The
+// store asset is a complete square icon, so keep Android on the identical
+// raster asset instead of wrapping it in an adaptive-icon definition.
+const adaptiveDir = path.join(resRoot, 'mipmap-anydpi-v26');
+for (const name of ['ic_launcher.xml', 'ic_launcher_round.xml']) {
+  fs.rmSync(path.join(adaptiveDir, name), { force: true });
+}
+
+if (writtenIcons.length < 3) {
+  throw new Error('No density-specific Android launcher icons were written.');
+}
+
+console.log(`Applied the original MathsLess Play Store icon to ${writtenIcons.length} raster launcher resources and removed adaptive masks.`);
